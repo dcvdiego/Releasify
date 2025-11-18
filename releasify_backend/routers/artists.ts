@@ -1,119 +1,247 @@
-const express = require('express');
+import express, { Request, Response } from 'express';
+import SpotifyWebApi from 'spotify-web-api-node';
+import { z } from 'zod';
+import { getPythonPrediction } from '../utils/pythonCall';
+import type { AlbumRelease, ArtistSearchResult, PredictionResult } from '../types/spotify';
 
-const router = new express.Router();
+const router = express.Router();
 
-const pythonCall = require('../utils/pythonCall');
-
-const SpotifyWebApi = require('spotify-web-api-node');
+// Validate environment variables
+if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+  throw new Error('Missing Spotify API credentials. Please set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in .env file');
+}
 
 const spotifyApi = new SpotifyWebApi({
   clientId: process.env.SPOTIFY_CLIENT_ID,
   clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
 });
 
-router.get('/call/:artist_id', async (req, res) => {
+// Token management
+let tokenExpirationTime = 0;
+
+async function ensureValidToken(): Promise<void> {
+  const now = Date.now();
+  if (now >= tokenExpirationTime) {
+    try {
+      const data = await spotifyApi.clientCredentialsGrant();
+      spotifyApi.setAccessToken(data.body.access_token);
+      tokenExpirationTime = now + (data.body.expires_in * 1000) - 60000; // Refresh 1 minute early
+      console.log(`✅ Spotify token refreshed, expires in ${data.body.expires_in}s`);
+    } catch (error) {
+      console.error('Failed to get Spotify access token:', error);
+      throw new Error('Failed to authenticate with Spotify API');
+    }
+  }
+}
+
+/**
+ * GET /api/artists/search/:query
+ * Search for artists by name
+ */
+router.get('/search/:query', async (req: Request, res: Response) => {
   try {
-    spotifyApi.clientCredentialsGrant().then(
-      (data) => {
-        console.log('The access token expires in ' + data.body['expires_in']);
-        console.log('The access token is ' + data.body['access_token']);
+    const { query } = req.params;
 
-        // Save the access token so that it's used in future calls
-        spotifyApi.setAccessToken(data.body['access_token']);
-        spotifyApi
-          .getArtistAlbums(req.params.artist_id, {
-            offset: 0,
-            limit: 50,
-            include_groups: 'album',
-          })
-          .then(
-            (data) => {
-              const json = data.body.items.map((album) => album.release_date);
-              const filter = [...new Set(json)];
-              console.log(filter);
-              const json_labeled = data.body.items.map((album) => {
-                return {
-                  release_date: album.release_date,
-                  album_name: album.name,
-                };
-              });
-              const filter_labeled = Array.from(
-                new Set(json.map((a) => a.album_name))
-              ).map((album_name) => {
-                return json.find((a) => a.album_name === album_name);
-              });
-              //currently just sending the data out for debug, but this should be sent to python!
-              res.send(filter_labeled);
-            },
-            (err) => {
-              console.error(err);
-              res.status(400).send(err);
-            }
-          );
-      },
-      (err) => {
-        console.log(
-          'Something went wrong when retrieving an access token',
-          err
-        );
-      }
-    );
-    // avril lavigne id: 0p4nmQO2msCgU4IF37Wi3j
-    // eminem id: 7dGJo4pcD2V6oG8kP0tJRR
+    if (!query || query.trim().length === 0) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Search query cannot be empty'
+      });
+    }
 
-    // const json = {
-    //   array: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    // };
-    // pythonCall(json, 'example')
-    //   .then(function (fromRunpy) {
-    //     console.log(fromRunpy.toString());
-    //     res.end(fromRunpy);
-    //   })
-    //   .catch((e) => res.status(400).send(e));
-  } catch (e) {
-    res.status(400).send(e);
+    await ensureValidToken();
+
+    const data = await spotifyApi.searchArtists(query, {
+      limit: 10
+    });
+
+    const artists: ArtistSearchResult[] = data.body.artists?.items.map(artist => ({
+      id: artist.id,
+      name: artist.name,
+      image_url: artist.images[0]?.url,
+      genres: artist.genres,
+      popularity: artist.popularity,
+      followers: artist.followers.total,
+      spotify_url: artist.external_urls.spotify
+    })) || [];
+
+    res.json({
+      success: true,
+      query,
+      results: artists,
+      count: artists.length
+    });
+  } catch (error) {
+    console.error('Error searching artists:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to search for artists'
+    });
   }
 });
 
-router.get('/search/:query', async (req, res) => {
+/**
+ * GET /api/artists/:artistId/albums
+ * Get all albums for an artist
+ */
+router.get('/:artistId/albums', async (req: Request, res: Response) => {
   try {
-    spotifyApi.clientCredentialsGrant().then(
-      (data) => {
-        console.log('The access token expires in ' + data.body['expires_in']);
-        console.log('The access token is ' + data.body['access_token']);
+    const { artistId } = req.params;
 
-        // Save the access token so that it's used in future calls
-        spotifyApi.setAccessToken(data.body['access_token']);
-        spotifyApi
-          .searchArtists(req.params.query, {
-            offset: 0,
-            limit: 5,
-            fields: 'items',
-          })
-          .then(
-            (data) => {
-              console.log(
-                `Search artists by: ${req.params.query}`,
-                data.body.artists.items
-              );
-            },
-            (err) => {
-              console.error(err);
-            }
-          );
-      },
-      (err) => {
-        console.log(
-          'Something went wrong when retrieving an access token',
-          err
-        );
-      }
+    await ensureValidToken();
+
+    const data = await spotifyApi.getArtistAlbums(artistId, {
+      limit: 50,
+      include_groups: 'album'
+    });
+
+    const releases: AlbumRelease[] = data.body.items.map(album => ({
+      release_date: album.release_date,
+      album_name: album.name,
+      album_id: album.id,
+      album_type: album.album_type,
+      image_url: album.images[0]?.url
+    }));
+
+    // Remove duplicates by release date (keep first occurrence)
+    const uniqueReleases = releases.filter((release, index, self) =>
+      index === self.findIndex(r => r.release_date === release.release_date)
     );
-    // avril lavigne id: 0p4nmQO2msCgU4IF37Wi3j
-    // eminem id: 7dGJo4pcD2V6oG8kP0tJRR
-  } catch (e) {
-    res.status(400).send(e);
+
+    // Sort by release date (newest first)
+    uniqueReleases.sort((a, b) =>
+      new Date(b.release_date).getTime() - new Date(a.release_date).getTime()
+    );
+
+    res.json({
+      success: true,
+      artist_id: artistId,
+      releases: uniqueReleases,
+      count: uniqueReleases.length
+    });
+  } catch (error) {
+    console.error('Error fetching artist albums:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch artist albums'
+    });
   }
 });
 
-module.exports = router;
+/**
+ * POST /api/artists/:artistId/predict
+ * Predict next release date for an artist
+ */
+router.post('/:artistId/predict', async (req: Request, res: Response) => {
+  try {
+    const { artistId } = req.params;
+
+    await ensureValidToken();
+
+    // Get artist info
+    const artistData = await spotifyApi.getArtist(artistId);
+    const artistName = artistData.body.name;
+
+    // Get artist albums
+    const albumsData = await spotifyApi.getArtistAlbums(artistId, {
+      limit: 50,
+      include_groups: 'album'
+    });
+
+    const releases: AlbumRelease[] = albumsData.body.items.map(album => ({
+      release_date: album.release_date,
+      album_name: album.name,
+      album_id: album.id,
+      album_type: album.album_type,
+      image_url: album.images[0]?.url
+    }));
+
+    // Remove duplicates and sort
+    const uniqueReleases = releases.filter((release, index, self) =>
+      index === self.findIndex(r => r.release_date === release.release_date)
+    );
+    uniqueReleases.sort((a, b) =>
+      new Date(a.release_date).getTime() - new Date(b.release_date).getTime()
+    );
+
+    // Need at least 3 releases for prediction
+    if (uniqueReleases.length < 3) {
+      return res.status(400).json({
+        error: 'Insufficient Data',
+        message: `Artist has only ${uniqueReleases.length} album(s). At least 3 releases are required for prediction.`,
+        artist_name: artistName,
+        releases: uniqueReleases
+      });
+    }
+
+    // Call Python ML model for prediction
+    const dates = uniqueReleases.map(r => r.release_date);
+    const prediction = await getPythonPrediction({ dates });
+
+    const result: PredictionResult = {
+      predicted_date: prediction.predicted_date,
+      confidence: prediction.confidence,
+      model_used: prediction.model_used,
+      release_history: uniqueReleases
+    };
+
+    res.json({
+      success: true,
+      artist_id: artistId,
+      artist_name: artistName,
+      prediction: result
+    });
+  } catch (error: any) {
+    console.error('Error predicting release:', error);
+
+    if (error.message && error.message.includes('Insufficient data')) {
+      return res.status(400).json({
+        error: 'Insufficient Data',
+        message: error.message
+      });
+    }
+
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to predict next release date'
+    });
+  }
+});
+
+/**
+ * GET /api/artists/:artistId
+ * Get artist details
+ */
+router.get('/:artistId', async (req: Request, res: Response) => {
+  try {
+    const { artistId } = req.params;
+
+    await ensureValidToken();
+
+    const data = await spotifyApi.getArtist(artistId);
+    const artist = data.body;
+
+    const result: ArtistSearchResult = {
+      id: artist.id,
+      name: artist.name,
+      image_url: artist.images[0]?.url,
+      genres: artist.genres,
+      popularity: artist.popularity,
+      followers: artist.followers.total,
+      spotify_url: artist.external_urls.spotify
+    };
+
+    res.json({
+      success: true,
+      artist: result
+    });
+  } catch (error) {
+    console.error('Error fetching artist:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch artist details'
+    });
+  }
+});
+
+export default router;
