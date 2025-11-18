@@ -1,6 +1,8 @@
+/** @jsxImportSource @emotion/react */
 import React, { useState } from 'react';
 import { NextPage } from 'next';
-import tw, { styled } from 'twin.macro';
+import { css } from '@emotion/react';
+import styled from '@emotion/styled';
 import Layout from '@/components/Layout';
 import { searchArtists, predictRelease } from '@/utils/api';
 import type { Artist, PredictionResponse } from '@/types';
@@ -65,9 +67,9 @@ const IndexPage: NextPage = () => {
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.7) return tw`text-green-500`;
-    if (confidence >= 0.5) return tw`text-yellow-500`;
-    return tw`text-orange-500`;
+    if (confidence >= 0.7) return '#10b981'; // green
+    if (confidence >= 0.5) return '#eab308'; // yellow
+    return '#f97316'; // orange
   };
 
   return (
@@ -155,7 +157,7 @@ const IndexPage: NextPage = () => {
               <PredictedDate>{formatDate(prediction.prediction.predicted_date)}</PredictedDate>
               <ConfidenceRow>
                 <ConfidenceLabel>Confidence:</ConfidenceLabel>
-                <ConfidenceValue css={getConfidenceColor(prediction.prediction.confidence)}>
+                <ConfidenceValue style={{ color: getConfidenceColor(prediction.prediction.confidence) }}>
                   {(prediction.prediction.confidence * 100).toFixed(0)}%
                 </ConfidenceValue>
               </ConfidenceRow>
@@ -187,171 +189,333 @@ const IndexPage: NextPage = () => {
 };
 
 const Container = styled.div`
-  ${tw`min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 py-12 px-4`}
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, #581c87, #4338ca, #1e40af);
+  padding: 3rem 1rem;
 `;
 
 const Header = styled.div`
-  ${tw`text-center mb-12`}
+  text-align: center;
+  margin-bottom: 3rem;
 `;
 
 const Title = styled.h1`
-  ${tw`text-6xl font-bold text-white mb-4`}
+  font-size: 3.75rem;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 1rem;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 `;
 
 const Subtitle = styled.p`
-  ${tw`text-xl text-purple-200`}
+  font-size: 1.25rem;
+  color: #e9d5ff;
 `;
 
 const SearchSection = styled.form`
-  ${tw`max-w-2xl mx-auto mb-12 flex gap-4`}
+  max-width: 42rem;
+  margin: 0 auto 3rem;
+  display: flex;
+  gap: 1rem;
 `;
 
 const SearchInput = styled.input`
-  ${tw`flex-1 px-6 py-4 rounded-full text-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none transition-colors`}
+  flex: 1;
+  padding: 1rem 1.5rem;
+  border-radius: 9999px;
+  font-size: 1.125rem;
+  border: 2px solid #d8b4fe;
+  outline: none;
+  transition: border-color 0.2s;
+
+  &:focus {
+    border-color: #a855f7;
+  }
+
   &:disabled {
-    ${tw`opacity-50 cursor-not-allowed`}
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 `;
 
 const SearchButton = styled.button`
-  ${tw`px-8 py-4 bg-purple-600 text-white rounded-full font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+  padding: 1rem 2rem;
+  background: #9333ea;
+  color: white;
+  border-radius: 9999px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover:not(:disabled) {
+    background: #7e22ce;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `;
 
 const ErrorMessage = styled.div`
-  ${tw`max-w-2xl mx-auto mb-8 p-4 bg-red-500 bg-opacity-20 border border-red-500 rounded-lg text-red-200 text-center`}
+  max-width: 42rem;
+  margin: 0 auto 2rem;
+  padding: 1rem;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  border-radius: 0.5rem;
+  color: #fecaca;
+  text-align: center;
 `;
 
 const ResultsSection = styled.div`
-  ${tw`max-w-6xl mx-auto`}
+  max-width: 72rem;
+  margin: 0 auto;
 `;
 
 const SectionTitle = styled.h2`
-  ${tw`text-2xl font-semibold text-white mb-6`}
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 1.5rem;
 `;
 
 const ArtistGrid = styled.div`
-  ${tw`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6`}
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 1.5rem;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
 `;
 
 const ArtistCard = styled.div`
-  ${tw`bg-white bg-opacity-10 backdrop-blur-lg rounded-xl p-6 cursor-pointer hover:bg-opacity-20 transition-all hover:scale-105 border border-white border-opacity-20`}
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+  }
 `;
 
 const ArtistImage = styled.img`
-  ${tw`w-full h-48 object-cover rounded-lg mb-4`}
+  width: 100%;
+  height: 12rem;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
 `;
 
 const ArtistInfo = styled.div`
-  ${tw`text-white`}
+  color: white;
 `;
 
 const ArtistName = styled.h3`
-  ${tw`text-xl font-bold mb-2`}
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
 `;
 
 const ArtistMeta = styled.p`
-  ${tw`text-sm text-purple-200 mb-2`}
+  font-size: 0.875rem;
+  color: #e9d5ff;
+  margin-bottom: 0.5rem;
 `;
 
 const GenreList = styled.div`
-  ${tw`flex flex-wrap gap-2 mt-2`}
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 `;
 
 const GenreTag = styled.span`
-  ${tw`text-xs bg-purple-500 bg-opacity-40 px-2 py-1 rounded-full`}
+  font-size: 0.75rem;
+  background: rgba(147, 51, 234, 0.4);
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
 `;
 
 const LoadingSection = styled.div`
-  ${tw`text-center py-16`}
+  text-align: center;
+  padding: 4rem 0;
 `;
 
 const LoadingSpinner = styled.div`
-  ${tw`w-16 h-16 border-4 border-purple-300 border-t-white rounded-full animate-spin mx-auto mb-4`}
+  width: 4rem;
+  height: 4rem;
+  border: 4px solid #d8b4fe;
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
 `;
 
 const LoadingText = styled.p`
-  ${tw`text-white text-lg`}
+  color: white;
+  font-size: 1.125rem;
 `;
 
 const PredictionSection = styled.div`
-  ${tw`max-w-4xl mx-auto`}
+  max-width: 56rem;
+  margin: 0 auto;
 `;
 
 const BackButton = styled.button`
-  ${tw`text-purple-200 hover:text-white mb-6 transition-colors`}
+  color: #e9d5ff;
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 1.5rem;
+  transition: color 0.2s;
+  font-size: 1rem;
+
+  &:hover {
+    color: white;
+  }
 `;
 
 const ArtistHeader = styled.div`
-  ${tw`flex items-center gap-6 mb-8 bg-white bg-opacity-10 backdrop-blur-lg rounded-xl p-6 border border-white border-opacity-20`}
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 `;
 
 const ArtistImageLarge = styled.img`
-  ${tw`w-24 h-24 rounded-full object-cover`}
+  width: 6rem;
+  height: 6rem;
+  border-radius: 50%;
+  object-fit: cover;
 `;
 
 const ArtistNameLarge = styled.h2`
-  ${tw`text-3xl font-bold text-white mb-2`}
+  font-size: 1.875rem;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 0.5rem;
 `;
 
 const PredictionCard = styled.div`
-  ${tw`bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 mb-8 text-center border-4 border-white border-opacity-30`}
+  background: linear-gradient(to right, #9333ea, #ec4899);
+  border-radius: 1rem;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  border: 4px solid rgba(255, 255, 255, 0.3);
 `;
 
 const PredictionTitle = styled.h3`
-  ${tw`text-xl text-purple-100 mb-4`}
+  font-size: 1.25rem;
+  color: #f3e8ff;
+  margin-bottom: 1rem;
 `;
 
 const PredictedDate = styled.div`
-  ${tw`text-5xl font-bold text-white mb-6`}
+  font-size: 3rem;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 1.5rem;
 `;
 
 const ConfidenceRow = styled.div`
-  ${tw`flex items-center justify-center gap-4 mb-2`}
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
 `;
 
 const ConfidenceLabel = styled.span`
-  ${tw`text-purple-100`}
+  color: #f3e8ff;
 `;
 
 const ConfidenceValue = styled.span`
-  ${tw`text-2xl font-bold`}
+  font-size: 1.5rem;
+  font-weight: bold;
 `;
 
 const ModelInfo = styled.p`
-  ${tw`text-sm text-purple-200`}
+  font-size: 0.875rem;
+  color: #e9d5ff;
 `;
 
 const ReleaseHistorySection = styled.div`
-  ${tw`bg-white bg-opacity-10 backdrop-blur-lg rounded-xl p-6 border border-white border-opacity-20`}
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 `;
 
 const ReleaseTimeline = styled.div`
-  ${tw`space-y-6`}
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 `;
 
 const TimelineItem = styled.div`
-  ${tw`flex gap-4 items-start`}
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
 `;
 
 const TimelineDate = styled.div`
-  ${tw`text-purple-200 font-semibold min-w-[120px]`}
+  color: #e9d5ff;
+  font-weight: 600;
+  min-width: 7.5rem;
 `;
 
 const TimelineDot = styled.div`
-  ${tw`w-4 h-4 bg-purple-400 rounded-full mt-1 flex-shrink-0`}
+  width: 1rem;
+  height: 1rem;
+  background: #c084fc;
+  border-radius: 50%;
+  margin-top: 0.25rem;
+  flex-shrink: 0;
 `;
 
 const TimelineContent = styled.div`
-  ${tw`flex-1 flex items-center gap-4`}
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 `;
 
 const AlbumName = styled.div`
-  ${tw`text-white font-medium flex-1`}
+  color: white;
+  font-weight: 500;
+  flex: 1;
 `;
 
 const AlbumImage = styled.img`
-  ${tw`w-12 h-12 rounded object-cover`}
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.25rem;
+  object-fit: cover;
 `;
 
 export default IndexPage;
