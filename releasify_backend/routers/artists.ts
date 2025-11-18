@@ -82,16 +82,19 @@ router.get('/search/:query', async (req: Request, res: Response): Promise<any> =
 /**
  * GET /api/artists/:artistId/albums
  * Get all albums for an artist
+ * Query params: includeSingles=true to include singles
  */
 router.get('/:artistId/albums', async (req: Request, res: Response): Promise<any> => {
   try {
     const { artistId } = req.params;
+    const includeSingles = req.query.includeSingles === 'true';
 
     await ensureValidToken();
 
+    const includeGroups = includeSingles ? 'album,single' : 'album';
     const data = await spotifyApi.getArtistAlbums(artistId, {
       limit: 50,
-      include_groups: 'album'
+      include_groups: includeGroups
     });
 
     const releases: AlbumRelease[] = data.body.items.map((album: any) => ({
@@ -130,10 +133,12 @@ router.get('/:artistId/albums', async (req: Request, res: Response): Promise<any
 /**
  * POST /api/artists/:artistId/predict
  * Predict next release date for an artist
+ * Body: { includeSingles?: boolean }
  */
 router.post('/:artistId/predict', async (req: Request, res: Response): Promise<any> => {
   try {
     const { artistId } = req.params;
+    const { includeSingles = false } = req.body;
 
     await ensureValidToken();
 
@@ -141,10 +146,11 @@ router.post('/:artistId/predict', async (req: Request, res: Response): Promise<a
     const artistData = await spotifyApi.getArtist(artistId);
     const artistName = artistData.body.name;
 
-    // Get artist albums
+    // Get artist albums (and singles if requested)
+    const includeGroups = includeSingles ? 'album,single' : 'album';
     const albumsData = await spotifyApi.getArtistAlbums(artistId, {
       limit: 50,
-      include_groups: 'album'
+      include_groups: includeGroups
     });
 
     const releases: AlbumRelease[] = albumsData.body.items.map((album: any) => ({
@@ -167,11 +173,17 @@ router.post('/:artistId/predict', async (req: Request, res: Response): Promise<a
     if (uniqueReleases.length < 3) {
       return res.status(400).json({
         error: 'Insufficient Data',
-        message: `Artist has only ${uniqueReleases.length} album(s). At least 3 releases are required for prediction.`,
+        message: `Artist has only ${uniqueReleases.length} release(s). At least 3 releases are required for prediction.`,
         artist_name: artistName,
         releases: uniqueReleases
       });
     }
+
+    // Check for potentially inactive/deceased/disbanded artists
+    const lastRelease = uniqueReleases[uniqueReleases.length - 1];
+    const lastReleaseDate = new Date(lastRelease.release_date);
+    const yearsSinceLastRelease = (Date.now() - lastReleaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365);
+    const isPotentiallyInactive = yearsSinceLastRelease > 5;
 
     // Call Python ML model for prediction
     const dates = uniqueReleases.map(r => r.release_date);
@@ -188,7 +200,13 @@ router.post('/:artistId/predict', async (req: Request, res: Response): Promise<a
       success: true,
       artist_id: artistId,
       artist_name: artistName,
-      prediction: result
+      prediction: result,
+      warnings: isPotentiallyInactive ? [{
+        type: 'potentially_inactive',
+        message: `This artist hasn't released music in ${Math.floor(yearsSinceLastRelease)} years. They may be disbanded, deceased, or inactive.`,
+        last_release_date: lastRelease.release_date,
+        years_since_last_release: Math.floor(yearsSinceLastRelease)
+      }] : []
     });
   } catch (error: any) {
     console.error('Error predicting release:', error);

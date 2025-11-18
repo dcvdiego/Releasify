@@ -13,12 +13,13 @@ export async function searchArtists(query: string): Promise<Artist[]> {
   return data.results;
 }
 
-export async function predictRelease(artistId: string): Promise<PredictionResponse> {
+export async function predictRelease(artistId: string, includeSingles: boolean = false): Promise<PredictionResponse> {
   const response = await fetch(`${API_URL}/api/artists/${artistId}/predict`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
-    }
+    },
+    body: JSON.stringify({ includeSingles })
   });
 
   if (!response.ok) {

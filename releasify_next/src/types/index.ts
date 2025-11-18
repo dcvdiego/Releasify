@@ -23,11 +23,19 @@ export interface Prediction {
   release_history: AlbumRelease[];
 }
 
+export interface ArtistWarning {
+  type: string;
+  message: string;
+  last_release_date?: string;
+  years_since_last_release?: number;
+}
+
 export interface PredictionResponse {
   success: boolean;
   artist_id: string;
   artist_name: string;
   prediction: Prediction;
+  warnings?: ArtistWarning[];
 }
 
 export interface SearchResponse {

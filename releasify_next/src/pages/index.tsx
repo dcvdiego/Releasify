@@ -15,6 +15,7 @@ const IndexPage: NextPage = () => {
   const [loading, setLoading] = useState(false);
   const [predicting, setPredicting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [includeSingles, setIncludeSingles] = useState(false);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +48,7 @@ const IndexPage: NextPage = () => {
     setPrediction(null);
 
     try {
-      const result = await predictRelease(artist.id);
+      const result = await predictRelease(artist.id, includeSingles);
       setPrediction(result);
     } catch (err: any) {
       setError(err.message || 'Failed to predict release date. This artist may not have enough release history.');
@@ -97,7 +98,20 @@ const IndexPage: NextPage = () => {
 
         {artists.length > 0 && !selectedArtist && (
           <ResultsSection>
-            <SectionTitle>Select an artist:</SectionTitle>
+            <OptionsRow>
+              <SectionTitle>Select an artist:</SectionTitle>
+              <CheckboxContainer>
+                <Checkbox
+                  type="checkbox"
+                  id="includeSingles"
+                  checked={includeSingles}
+                  onChange={(e) => setIncludeSingles(e.target.checked)}
+                />
+                <CheckboxLabel htmlFor="includeSingles">
+                  Include singles in prediction
+                </CheckboxLabel>
+              </CheckboxContainer>
+            </OptionsRow>
             <ArtistGrid>
               {artists.map((artist) => (
                 <ArtistCard
@@ -152,6 +166,15 @@ const IndexPage: NextPage = () => {
               </div>
             </ArtistHeader>
 
+            {prediction.warnings && prediction.warnings.length > 0 && (
+              <WarningCard>
+                <WarningIcon>⚠️</WarningIcon>
+                <WarningText>
+                  {prediction.warnings[0].message}
+                </WarningText>
+              </WarningCard>
+            )}
+
             <PredictionCard>
               <PredictionTitle>Predicted Next Release</PredictionTitle>
               <PredictedDate>{formatDate(prediction.prediction.predicted_date)}</PredictedDate>
@@ -162,6 +185,9 @@ const IndexPage: NextPage = () => {
                 </ConfidenceValue>
               </ConfidenceRow>
               <ModelInfo>Model: {prediction.prediction.model_used}</ModelInfo>
+              {includeSingles && (
+                <ModelInfo>Includes singles in analysis</ModelInfo>
+              )}
             </PredictionCard>
 
             <ReleaseHistorySection>
@@ -274,11 +300,40 @@ const ResultsSection = styled.div`
   margin: 0 auto;
 `;
 
+const OptionsRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+`;
+
 const SectionTitle = styled.h2`
   font-size: 1.5rem;
   font-weight: 600;
   color: white;
-  margin-bottom: 1.5rem;
+  margin: 0;
+`;
+
+const CheckboxContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const Checkbox = styled.input`
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+  accent-color: #9333ea;
+`;
+
+const CheckboxLabel = styled.label`
+  color: #e9d5ff;
+  font-size: 1rem;
+  cursor: pointer;
+  user-select: none;
 `;
 
 const ArtistGrid = styled.div`
@@ -417,6 +472,28 @@ const ArtistNameLarge = styled.h2`
   font-weight: bold;
   color: white;
   margin-bottom: 0.5rem;
+`;
+
+const WarningCard = styled.div`
+  background: rgba(245, 158, 11, 0.2);
+  border: 2px solid #f59e0b;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
+const WarningIcon = styled.div`
+  font-size: 2rem;
+  flex-shrink: 0;
+`;
+
+const WarningText = styled.p`
+  color: #fef3c7;
+  font-size: 1rem;
+  line-height: 1.5;
 `;
 
 const PredictionCard = styled.div`
