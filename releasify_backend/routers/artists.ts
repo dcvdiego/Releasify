@@ -1,6 +1,5 @@
 import express, { Request, Response } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
-import { z } from 'zod';
 import { getPythonPrediction } from '../utils/pythonCall';
 import type { AlbumRelease, ArtistSearchResult, PredictionResult } from '../types/spotify';
 
@@ -38,7 +37,7 @@ async function ensureValidToken(): Promise<void> {
  * GET /api/artists/search/:query
  * Search for artists by name
  */
-router.get('/search/:query', async (req: Request, res: Response) => {
+router.get('/search/:query', async (req: Request, res: Response): Promise<any> => {
   try {
     const { query } = req.params;
 
@@ -55,7 +54,7 @@ router.get('/search/:query', async (req: Request, res: Response) => {
       limit: 10
     });
 
-    const artists: ArtistSearchResult[] = data.body.artists?.items.map(artist => ({
+    const artists: ArtistSearchResult[] = data.body.artists?.items.map((artist: any) => ({
       id: artist.id,
       name: artist.name,
       image_url: artist.images[0]?.url,
@@ -84,7 +83,7 @@ router.get('/search/:query', async (req: Request, res: Response) => {
  * GET /api/artists/:artistId/albums
  * Get all albums for an artist
  */
-router.get('/:artistId/albums', async (req: Request, res: Response) => {
+router.get('/:artistId/albums', async (req: Request, res: Response): Promise<any> => {
   try {
     const { artistId } = req.params;
 
@@ -95,7 +94,7 @@ router.get('/:artistId/albums', async (req: Request, res: Response) => {
       include_groups: 'album'
     });
 
-    const releases: AlbumRelease[] = data.body.items.map(album => ({
+    const releases: AlbumRelease[] = data.body.items.map((album: any) => ({
       release_date: album.release_date,
       album_name: album.name,
       album_id: album.id,
@@ -132,7 +131,7 @@ router.get('/:artistId/albums', async (req: Request, res: Response) => {
  * POST /api/artists/:artistId/predict
  * Predict next release date for an artist
  */
-router.post('/:artistId/predict', async (req: Request, res: Response) => {
+router.post('/:artistId/predict', async (req: Request, res: Response): Promise<any> => {
   try {
     const { artistId } = req.params;
 
@@ -148,7 +147,7 @@ router.post('/:artistId/predict', async (req: Request, res: Response) => {
       include_groups: 'album'
     });
 
-    const releases: AlbumRelease[] = albumsData.body.items.map(album => ({
+    const releases: AlbumRelease[] = albumsData.body.items.map((album: any) => ({
       release_date: album.release_date,
       album_name: album.name,
       album_id: album.id,
@@ -212,7 +211,7 @@ router.post('/:artistId/predict', async (req: Request, res: Response) => {
  * GET /api/artists/:artistId
  * Get artist details
  */
-router.get('/:artistId', async (req: Request, res: Response) => {
+router.get('/:artistId', async (req: Request, res: Response): Promise<any> => {
   try {
     const { artistId } = req.params;
 
